@@ -50,7 +50,7 @@ from app.core.config import settings
 
 # Async engine: bağlantı havuzunu async olarak yönetir
 engine = create_async_engine(
-    settings.DATABASE_URL,
+    settings.async_database_url,
     pool_size=5,      # Havuzda sürekli açık tutulan bağlantı sayısı
     max_overflow=10,  # Havuz dolunca açılabilecek ekstra bağlantı sayısı
     echo=False,       # True yapılırsa çalışan SQL sorguları terminale yazdırılır
