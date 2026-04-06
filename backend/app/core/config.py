@@ -10,6 +10,7 @@ from typing import List
 class Settings(BaseSettings):
     DATABASE_URL: str
     GEMINI_API_KEY: str
+    ALLOWED_ORIGINS: List[str] = ["http://localhost:8501", "http://localhost:3000"]
 
     @property
     def async_database_url(self) -> str:
@@ -19,7 +20,6 @@ class Settings(BaseSettings):
         elif url.startswith("postgres://"):
             url = url.replace("postgres://", "postgresql+asyncpg://", 1)
         return url
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:8501", "http://localhost:3000"]
 
     class Config:
         env_file = ".env"
