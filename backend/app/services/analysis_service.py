@@ -15,12 +15,12 @@ NOT:
     Akış:
         İstemci (Streamlit)
             ↓ HTTP POST
-        routes/analysis.py           →  sadece HTTP katmanı
+        routes/analysis.py            →  sadece HTTP katmanı
             ↓ await
-        services/analysis_service.py →  iş mantığı (burada)
-            ↓ await          ↓ await
-        gemini_service.py    database.py
-        (AI analizi)         (kayıt/okuma)
+        services/analysis_service.py  →  iş mantığı (burada)
+            ↓ await              ↓ await
+        gemini_service.py       database.py
+        (Adım 1: AI analizi)    (Adım 2: kayıt/okuma)
 
     Async SQLAlchemy sorgu farkı:
         Sync  →  db.query(Model).filter(...).all()

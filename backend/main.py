@@ -28,6 +28,9 @@ NOT:
     Tüm router'lar buraya kayıt edilir.
     --reload flag'i sayesinde kod değişikliklerinde otomatik yeniden başlar.
 
+    Adım 1 (Gemini) ve Adım 2 (PostgreSQL) hazır olduğu için
+    bu dosyada her ikisini de direkt entegre edebiliyoruz.
+
     Neden lifespan?
         Async uygulamalarda Base.metadata.create_all() direkt çağrılamaz.
         lifespan context manager ile uygulama başlarken async olarak

@@ -17,7 +17,17 @@ KURULUM:
     4. backend/.env dosyasına bağlantı string'ini yazın:
            DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/yorum_analizi
 
+TEST:
+    Bu adımı bitirince bağlantıyı test etmek için:
+        docker compose up db -d    (sadece PostgreSQL'i başlat)
+        python test_db.py          (bağlantı + CRUD testi)
+
 NOT:
+    Neden FastAPI'den önce?
+        DB modelini ve bağlantısını önce hazırlarsak FastAPI'yi
+        yazarken entegrasyonu tek seferde yapabiliriz.
+        Sonradan geri dönüp değiştirmek gerekmez.
+
     Neden asyncpg?
         psycopg2 sync (blocking) bir sürücüdür.
         asyncpg ise async/await destekli PostgreSQL sürücüsüdür.

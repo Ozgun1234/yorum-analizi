@@ -8,14 +8,14 @@ uçtan uca bir duygu analizi uygulaması.
 ## Proje Akışı
 
 ```
-Gemini API → FastAPI → PostgreSQL → Streamlit → Docker → Deploy
+Gemini API → PostgreSQL → FastAPI → Streamlit → Docker → Deploy
 ```
 
 Her adım bir öncekinin üzerine inşa edilir. Adımları sırayla takip edin.
 
 ---
 
-## Adım 1 —  Gemini ile Yorum Analizi ve İyileştirme Önerileri Geliştirme
+## Adım 1 — Gemini ile Yorum Analizi Geliştirme
 
 **Ne yapacağız?**
 Google'ın Gemini yapay zeka modeline bağlanıp müşteri yorumlarını
@@ -24,7 +24,7 @@ duygu analizine göre sınıflandıracağız: **pozitif / negatif / nötr**
 **Dosya:** `backend/app/services/gemini_service.py`
 
 **Ne öğreneceğiz?**
-- `google-genai` SDK kurulumu
+- `google-genai` SDK kurulumu ve virtual environment kullanımı
 - `genai.Client` ile API bağlantısı kurma
 - Prompt mühendisliği (modele ne söylemek gerekir?)
 - JSON formatında yapılandırılmış yanıt alma
@@ -38,23 +38,65 @@ python app/services/gemini_service.py "Ürün harika, çok memnun kaldım!"
 
 ---
 
-## Adım 2 — FastAPI ile Yorum Analizi API’si Geliştirme
+## Adım 2 — PostgreSQL ile Analiz Sonuçlarını Kaydetme
 
 **Ne yapacağız?**
-Gemini servisini bir REST API'ye sarmalayacağız. İki endpoint yazacağız:
-- `POST /api/v1/analysis/` → yorum gönder, analiz sonucu al
+Her analiz sonucunu veritabanına kaydedeceğiz. Böylece geçmiş
+analizlere erişebilecek ve istatistik gösterebileceğiz.
+
+**Neden FastAPI'den önce?**
+Veritabanı modelini ve bağlantısını önce kurarsak FastAPI'yi
+yazarken zaten hazır olan DB katmanını entegre edebiliriz.
+Sonradan geri dönüp değiştirmek gerekmez.
+
+**Dosyalar:**
+- `backend/app/core/config.py` — ortam değişkenlerini oku (.env)
+- `backend/app/db/database.py` — async engine, session, get_db
+- `backend/app/models/analysis.py` — analyses tablosu ORM modeli
+
+**Ne öğreneceğiz?**
+- Pydantic Settings ile `.env` dosyasından config okuma
+- SQLAlchemy async engine kurulumu (`asyncpg` sürücüsü)
+- ORM model tanımlama (Python sınıfı → veritabanı tablosu)
+- Async session yönetimi ve `get_db` dependency pattern'i
+
+**Bağlantı string formatı:**
+```
+postgresql+asyncpg://kullanici:sifre@host:5432/veritabani
+```
+
+**Test:**
+```bash
+# Sadece PostgreSQL container'ını başlat
+docker compose up db -d
+
+# Bağlantı + tablo oluşturma + CRUD testini çalıştır
+cd backend
+python test_db.py
+```
+
+---
+
+## Adım 3 — FastAPI ile Yorum Analizi API'si Geliştirme
+
+**Ne yapacağız?**
+Gemini (Adım 1) ve PostgreSQL (Adım 2) servislerini bir REST API'ye
+bağlayacağız. İki endpoint yazacağız:
+- `POST /api/v1/analysis/` → yorum gönder, analiz sonucu al ve kaydet
 - `GET  /api/v1/analysis/history` → geçmiş analizleri listele
 
 **Dosyalar:**
 - `backend/main.py` — uygulama giriş noktası, CORS, lifespan
-- `backend/app/api/routes/analysis.py` — endpoint tanımları
 - `backend/app/schemas/schemas.py` — request/response modelleri (Pydantic)
+- `backend/app/api/routes/analysis.py` — endpoint tanımları
+- `backend/app/services/analysis_service.py` — Gemini + DB iş mantığı
 
 **Ne öğreneceğiz?**
-- FastAPI kurulumu ve uygulama oluşturma
+- FastAPI kurulumu ve async uygulama oluşturma
 - Pydantic ile otomatik veri doğrulama
-- Async endpoint yazma (`async def`)
 - CORS middleware (Streamlit'in API'ye erişebilmesi için)
+- `lifespan` ile async tablo oluşturma
+- Dependency Injection ile `get_db` kullanımı
 - Swagger UI ile otomatik dokümantasyon (`/docs`)
 
 **Test:**
@@ -66,32 +108,6 @@ uvicorn main:app --reload
 
 ---
 
-## Adım 3 — PostgreSQL ile Analiz Sonuçlarını Kaydetme
-
-**Ne yapacağız?**
-Her analiz sonucunu veritabanına kaydedeceğiz. Böylece geçmiş
-analizlere erişebilecek ve istatistik gösterebileceğiz.
-
-**Dosyalar:**
-- `backend/app/db/database.py` — async engine, session, get_db
-- `backend/app/models/analysis.py` — analyses tablosu ORM modeli
-- `backend/app/services/analysis_service.py` — DB işlemleri (kaydet, listele)
-- `backend/app/core/config.py` — ortam değişkenlerini oku (.env)
-
-**Ne öğreneceğiz?**
-- SQLAlchemy async engine kurulumu (`asyncpg` sürücüsü)
-- ORM model tanımlama (Python sınıfı → veritabanı tablosu)
-- Async CRUD işlemleri (`select`, `add`, `commit`, `refresh`)
-- FastAPI Dependency Injection ile `get_db` kullanımı
-- `lifespan` ile uygulama başlarken tablo oluşturma
-
-**Bağlantı string formatı:**
-```
-postgresql+asyncpg://kullanici:sifre@host:5432/veritabani
-```
-
----
-
 ## Adım 4 — Streamlit ile Kullanıcı Arayüzü Geliştirme
 
 **Ne yapacağız?**
@@ -99,16 +115,15 @@ Kullanıcıların yorum yazabileceği ve analiz sonuçlarını görebileceği
 bir web arayüzü oluşturacağız.
 
 **Dosyalar:**
-- `frontend/app.py` — giriş noktası, sayfa ayarları, global CSS
-- `frontend/pages/main_page.py` — dashboard + form + geçmiş listesi
+- `frontend/app.py` — tek sayfa: ayarlar + dashboard + form + geçmiş
 - `frontend/api_client.py` — FastAPI'ye HTTP istekleri atan client
 
 **Ne öğreneceğiz?**
 - Streamlit kurulumu ve `streamlit run` komutu
 - `st.form` ile kullanıcı girişi alma
 - `st.session_state` ile sayfa yenilenince veriyi koruma
-- `st.columns` ile yan yana düzen oluşturma
-- `st.rerun()` ile sayfayı yeniden çizme
+- `st.columns` ve `st.metric` ile düzen oluşturma
+- `st.container(border=True)` ile kart görünümü (saf Python, HTML yok)
 - `requests` kütüphanesi ile FastAPI'ye istek atma
 
 **Test:**
@@ -212,8 +227,8 @@ Uygulamayı AWS EC2 üzerinde gerçek bir sunucuya deploy edeceğiz.
 
 6. Erişin:
    ```
-   http://<ec2-ip-adresi>:8501   → Streamlit
-   http://<ec2-ip-adresi>:8000/docs  → FastAPI
+   http://<ec2-ip-adresi>:8501        → Streamlit
+   http://<ec2-ip-adresi>:8000/docs   → FastAPI
    ```
 
 ---
@@ -225,29 +240,27 @@ yorum-analizi/
 ├── backend/
 │   ├── app/
 │   │   ├── api/routes/
-│   │   │   └── analysis.py       # Adım 2: POST /analysis, GET /history
+│   │   │   └── analysis.py        # Adım 3: POST /analysis, GET /history
 │   │   ├── core/
-│   │   │   └── config.py         # Adım 3: .env okuma
+│   │   │   └── config.py          # Adım 2: .env okuma
 │   │   ├── db/
-│   │   │   └── database.py       # Adım 3: Async engine, get_db
+│   │   │   └── database.py        # Adım 2: Async engine, get_db
 │   │   ├── models/
-│   │   │   └── analysis.py       # Adım 3: analyses tablosu
+│   │   │   └── analysis.py        # Adım 2: analyses tablosu
 │   │   ├── schemas/
-│   │   │   └── schemas.py        # Adım 2: Pydantic modeller
+│   │   │   └── schemas.py         # Adım 3: Pydantic modeller
 │   │   └── services/
-│   │       ├── gemini_service.py # Adım 1: Gemini API
-│   │       └── analysis_service.py # Adım 3: DB işlemleri
-│   ├── main.py                   # Adım 2: FastAPI giriş noktası
+│   │       ├── gemini_service.py  # Adım 1: Gemini API
+│   │       └── analysis_service.py # Adım 3: Gemini + DB iş mantığı
+│   ├── main.py                    # Adım 3: FastAPI giriş noktası
 │   ├── requirements.txt
-│   ├── Dockerfile                # Adım 5: Backend image
+│   ├── Dockerfile                 # Adım 5: Backend image
 │   └── .env.example
 ├── frontend/
-│   ├── pages/
-│   │   └── main_page.py          # Adım 4: Dashboard + form
-│   ├── app.py                    # Adım 4: Streamlit giriş noktası
-│   ├── api_client.py             # Adım 4: HTTP client
+│   ├── app.py                     # Adım 4: Streamlit tek sayfa
+│   ├── api_client.py              # Adım 4: HTTP client
 │   ├── requirements.txt
-│   ├── Dockerfile                # Adım 5: Frontend image
+│   ├── Dockerfile                 # Adım 5: Frontend image
 │   └── .env.example
-└── docker-compose.yml            # Adım 5: Tüm servisler
+└── docker-compose.yml             # Adım 5: Tüm servisler
 ```
