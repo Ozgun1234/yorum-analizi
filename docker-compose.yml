@@ -62,7 +62,9 @@ services:
   # 2. FastAPI backend servisi
   # =========================================================
   backend:
-    image: yorum_analizi_backend:latest
+    build:
+      context: ./backend      # Dockerfile bu dizinde aranır
+      dockerfile: Dockerfile
     container_name: yorum_analizi_backend
     restart: unless-stopped
     env_file:
@@ -85,7 +87,9 @@ services:
   # 3. Streamlit frontend servisi
   # =========================================================
   frontend:
-    image: yorum_analizi_frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     container_name: yorum_analizi_frontend
     restart: unless-stopped
     env_file:
