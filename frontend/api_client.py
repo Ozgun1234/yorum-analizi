@@ -5,16 +5,13 @@ ADIMLAR:
     3. Analiz geçmişini getir   →  GET  /analysis/history
 
 KURULUM:
-    1. Virtual environment'ı aktif edin:
-           - Windows : venv\Scripts\activate
-           - Mac/Linux: source venv/bin/activate
-    2. requirements.txt dosyasına şunu ekleyin:
+    1. requirements.txt dosyasına şunu ekleyin:
            streamlit
            requests
            python-dotenv
-    3. Bağımlılıkları yükleyin:
+    2. Bağımlılıkları yükleyin:
            pip install -r requirements.txt
-    4. frontend/.env dosyasına backend adresini yazın:
+    3. frontend/.env dosyasına backend adresini yazın:
            Lokal geliştirme : API_BASE_URL=http://localhost:8000/api/v1
            Docker Compose   : API_BASE_URL=http://backend:8000/api/v1
 

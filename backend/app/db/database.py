@@ -1,14 +1,12 @@
 """
 ADIMLAR:
-    1. Async SQLAlchemy engine'i oluştur  (veritabanı bağlantısı)
-    2. Async session factory'yi tanımla   (her istek için ayrı oturum)
-    3. Base class'ı oluştur               (ORM modelleri bu sınıftan türer)
-    4. get_db dependency'sini yaz         (FastAPI bunu her endpoint'e enjekte eder)
+    1. Gerekli Kütüphanelerin import edilmesi
+    2. Async SQLAlchemy engine'i oluştur  (veritabanı bağlantısı)
+    3. Async session factory'yi tanımla   (her istek için ayrı oturum)
+    4. Base class'ı oluştur               (ORM modelleri bu sınıftan türer)
+    5. get_db dependency'sini yaz         (FastAPI bunu her endpoint'e enjekte eder)
 
 KURULUM:
-    1 Virtual environment'ı aktif edin:
-           - Windows : venv\Scripts\activate
-           - Mac/Linux: source venv/bin/activate
     2. requirements.txt dosyasına şunları ekleyin:
            sqlalchemy[asyncio]
            asyncpg
@@ -22,32 +20,19 @@ TEST:
         docker compose up db -d    (sadece PostgreSQL'i başlat)
         python test_db.py          (bağlantı + CRUD testi)
 
-NOT:
-    Neden FastAPI'den önce?
-        DB modelini ve bağlantısını önce hazırlarsak FastAPI'yi
-        yazarken entegrasyonu tek seferde yapabiliriz.
-        Sonradan geri dönüp değiştirmek gerekmez.
-
-    Neden asyncpg?
-        psycopg2 sync (blocking) bir sürücüdür.
-        asyncpg ise async/await destekli PostgreSQL sürücüsüdür.
-        FastAPI async çalıştığı için asyncpg kullanmak gerekir,
-        aksi takdirde DB sorgusu tüm event loop'u bloklar.
-
-    Neden postgresql+asyncpg:// ?
-        SQLAlchemy hangi sürücüyü kullanacağını URL'den anlar:
-            postgresql://          →  psycopg2  (sync)
-            postgresql+asyncpg://  →  asyncpg   (async)
 """
+# =========================================================
+# 1. Gerekli Kütüphanelerin import edilmesi
+# =========================================================
 
-# =========================================================
-# 1. Async SQLAlchemy engine'i oluştur
-# =========================================================
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from sqlalchemy.orm import declarative_base
 
 from app.core.config import settings
 
+# =========================================================
+# 2. Async SQLAlchemy engine'i oluştur
+# =========================================================
 # Async engine: bağlantı havuzunu async olarak yönetir
 engine = create_async_engine(
     settings.async_database_url,
@@ -78,6 +63,16 @@ Base = declarative_base()
 # =========================================================
 # 4. get_db dependency'sini yaz
 # =========================================================
+async def init_db(engine_override=None):
+    """
+    Veritabanında tabloları oluşturur. (Eğer yoksa)
+    Uygulama başlarken (startup event) çağrılması önerilir.
+    """
+    use_engine = engine_override or engine
+    async with use_engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
 async def get_db():
     """
     Amaç:

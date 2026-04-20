@@ -1,6 +1,6 @@
 """
 ADIMLAR:
-    1. Sadece PostgreSQL container'ını başlat
+    1. Gerekli Kütüphanelerin import edilmesi
     2. Test için doğrudan DB bağlantısı kur
     3. Tabloları oluştur
     4. Test kaydı ekle
@@ -13,61 +13,37 @@ KURULUM:
     2. Çalıştığını doğrulayın:
            docker compose ps
     3. Bu test dosyasını çalıştırın:
-           python test_db.py
+           python3 -m app.db.test_db
 
 NOT:
     Bu dosya FastAPI olmadan, doğrudan SQLAlchemy üzerinden
     veritabanı bağlantısını ve ORM modelini test eder.
-
-    Neden localhost:5433?
-        docker-compose.yml'de PostgreSQL portu 5433 olarak dışa açıldı:
-            ports: "5433:5432"
-        Container içinde 5432, dışarıdan 5433 ile erişilir.
-        FastAPI container içindeyken "db:5432" kullanır,
-        biz burada dışarıdan bağlandığımız için "localhost:5433" kullanıyoruz.
+    Ayrıca doğrudan app.db.database içindeki yapılandırmayı kullanır.
 """
 
-# =========================================================
-# 1. Gerekli kütüphaneleri import et
-# =========================================================
 import asyncio
-from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker
-from sqlalchemy import select, text
+from sqlalchemy import select
 
 from app.models.analysis import Analysis
-from app.db.database import Base
+# Ayrı engine oluşturmak yerine projenin kullandıklarını import ediyoruz
+from app.db.database import AsyncSessionLocal, engine, init_db
 
 
 # =========================================================
-# 2. Test için doğrudan DB bağlantısı kur
-# =========================================================
-# Dışarıdan bağlandığımız için localhost:5433 kullanıyoruz
-# (docker-compose.yml'de 5433:5432 olarak map edildi)
-TEST_DATABASE_URL = "postgresql+asyncpg://postgres:postgres@localhost:5433/yorum_analizi"
-
-engine = create_async_engine(TEST_DATABASE_URL, echo=True)
-# echo=True: çalışan SQL sorgularını terminale yazdırır — öğrenmek için faydalı
-
-AsyncSessionLocal = async_sessionmaker(bind=engine, expire_on_commit=False)
-
-
-# =========================================================
-# 3. Tabloları oluştur
+# 1. Tabloları oluştur
 # =========================================================
 async def create_tables():
     """
     Amaç:
-        Base.metadata.create_all ile tüm ORM modellerindeki tabloları
-        PostgreSQL'de oluşturmak.
-        Tablo zaten varsa bu işlem hiçbir şey yapmaz (güvenli).
+        database.py'deki init_db fonksiyonunu kullanarak
+        kendi engine'imizle tabloları oluşturmak.
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    print("✅ Tablolar oluşturuldu (veya zaten vardı)")
+    await init_db(engine_override=engine)
+    print(" Tablolar oluşturuldu (veya zaten vardı)")
 
 
 # =========================================================
-# 4. Test kaydı ekle
+# 2. Test kaydı ekle
 # =========================================================
 async def insert_test_record() -> int:
     """
@@ -89,12 +65,12 @@ async def insert_test_record() -> int:
         await db.commit()
         await db.refresh(analysis)
 
-    print(f"✅ Test kaydı eklendi  →  id={analysis.id}")
+    print(f" Test kaydı eklendi  →  id={analysis.id}")
     return analysis.id
 
 
 # =========================================================
-# 5. Kaydı sorgula ve ekrana yazdır
+# 3. Kaydı sorgula ve ekrana yazdır
 # =========================================================
 async def query_record(record_id: int):
     """
@@ -117,11 +93,11 @@ async def query_record(record_id: int):
         print(f"   explanation  : {analysis.explanation}")
         print(f"   created_at   : {analysis.created_at}")
     else:
-        print("❌ Kayıt bulunamadı!")
+        print(" Kayıt bulunamadı!")
 
 
 # =========================================================
-# 6. Test kaydını temizle
+# 4. Test kaydını temizle
 # =========================================================
 async def delete_test_record(record_id: int):
     """
@@ -137,7 +113,7 @@ async def delete_test_record(record_id: int):
             await db.delete(analysis)
             await db.commit()
 
-    print(f"\n🗑️  Test kaydı silindi  →  id={record_id}")
+    print(f"\n  Test kaydı silindi  →  id={record_id}")
 
 
 # =========================================================
@@ -145,7 +121,7 @@ async def delete_test_record(record_id: int):
 # =========================================================
 async def main():
     print("=" * 50)
-    print("  Veritabanı Bağlantı Testi")
+    print("  Veritabanı Bağlantı Testi (Proje Config'i ile)")
     print("=" * 50)
 
     await create_tables()
@@ -154,8 +130,9 @@ async def main():
     await query_record(record_id)
     await delete_test_record(record_id)
 
-    print("\n✅ Tüm testler başarılı! Veritabanı bağlantısı çalışıyor.")
-
+    print("\n Tüm testler başarılı! Veritabanı bağlantısı çalışıyor.")
+    
+    # İşlem bitince bağlantı havuzunu kapat
     await engine.dispose()
 
 

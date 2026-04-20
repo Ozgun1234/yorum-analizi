@@ -2,9 +2,10 @@
 ADIMLAR:
     1. Gerekli kütüphaneyi import et
     2. API key ile Gemini client oluştur
-    3. Duygu analizi için prompt hazırla
-    4. Bir metin üzerinde async duygu analizi yap
-    5. Sonucu JSON olarak parse et ve döndür
+    3. İlk basit mesajlaşmayı yap  (bağlantı testi)
+    4. Duygu analizi için prompt hazırla
+    5. Bir metin üzerinde async duygu analizi yap
+    6. Sonucu JSON olarak parse et ve döndür
 
 KURULUM:
     1. Virtual environment oluşturun:
@@ -66,7 +67,29 @@ client = genai.Client(api_key=GEMINI_API_KEY)
 
 
 # =========================================================
-# 3. Duygu analizi için prompt hazırla
+# 3. İlk basit mesajlaşmayı yap
+# =========================================================
+async def first_message():
+    """
+    Amaç:
+        Gemini API bağlantısının çalıştığını görmek için
+        ilk basit mesajı göndermek.
+
+    Bu adım karmaşık bir prompt veya JSON gerektirmiyor.
+    Sadece "API key doğru mu, bağlantı kuruluyor mu?" sorusunu yanıtlar.
+    """
+    response = await client.aio.models.generate_content(
+        model=MODEL_NAME,
+        contents="Merhaba Gemini. Bana kısa bir selam ver."
+    )
+
+    print("=== İlk Gemini API Çağrısı ===")
+    print(response.text)
+    print()
+
+
+# =========================================================
+# 4. Duygu analizi için prompt hazırla
 # =========================================================
 def build_sentiment_prompt(comment: str) -> str:
     """
@@ -95,7 +118,7 @@ Yanıt formatı:
 
 
 # =========================================================
-# 4. Bir metin üzerinde async duygu analizi yap
+# 5. Bir metin üzerinde async duygu analizi yap
 # =========================================================
 async def analyze_sentiment(comment: str) -> dict:
     """
@@ -122,7 +145,7 @@ async def analyze_sentiment(comment: str) -> dict:
     raw_text = response.text.strip()
 
     # =========================================================
-    # 5. Sonucu JSON olarak parse et ve döndür
+    # 6. Sonucu JSON olarak parse et ve döndür
     # =========================================================
     # Gemini bazen cevabı ```json ... ``` bloğu içine sarar — temizliyoruz
     if raw_text.startswith("```"):
@@ -147,6 +170,10 @@ async def analyze_sentiment(comment: str) -> dict:
 # Standalone test: dosyayı doğrudan çalıştırınca devreye girer
 # =========================================================
 async def _main():
+    # Adım 3: önce basit bağlantı testi
+    await first_message()
+
+    # Adım 5-6: duygu analizi testi
     if len(sys.argv) > 1:
         comment = " ".join(sys.argv[1:])
     else:

@@ -47,7 +47,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes import analysis
 from app.core.config import settings
-from app.db.database import engine, Base
+from app.db.database import engine, Base, init_db
 
 
 # =========================================================
@@ -66,8 +66,7 @@ async def lifespan(app: FastAPI):
     engine.begin(): async bağlantı açar ve işlem bitince otomatik kapatır.
     conn.run_sync(): async engine üzerinde sync bir fonksiyon çalıştırmak için.
     """
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    await init_db()  # Veritabanı bağlantısını başlat ve tabloları oluştur
     yield
     # Uygulama kapanırken engine bağlantılarını temizle
     await engine.dispose()

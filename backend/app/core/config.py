@@ -1,6 +1,18 @@
 """
-Application configuration.
-All settings are read from environment variables via .env file.
+Adımlar:
+    1. Gerekli kütüphaneleri import edin.
+    2. Settings sınıfını oluşturun ve BaseSettings'ten türetin.
+    3. DATABASE_URL ve GEMINI_API_KEY gibi gerekli alanları tanımlayın.
+    4. async_database_url özelliğini ekleyin ve DATABASE_URL'yi asyncpg formatına dönüştürün.
+    5. settings örneğini oluşturun.
+
+Kurulum:
+    1. pydantic-settings kütüphanesini requirements.txt dosyasına ekleyin:
+        pydantic-settings
+    2. Bağımlılıkları yükleyin:
+        pip install -r requirements.txt
+    3. .env dosyasına gerekli ortam değişkenlerini ekleyin:
+        DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/yorum_analizi
 """
 
 from pydantic_settings import BaseSettings

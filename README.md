@@ -1,6 +1,6 @@
 # Yapay Zeka ile Müşteri Yorum Analizi
 
-Gemini API, FastAPI, PostgreSQL, Streamlit, Docker ve AWS EC2 kullanarak
+Gemini API, FastAPI, PostgreSQL, Streamlit, Docker ve Railway kullanarak
 uçtan uca bir duygu analizi uygulaması.
 
 ---
@@ -9,13 +9,13 @@ uçtan uca bir duygu analizi uygulaması.
 
 ```
 Gemini API → PostgreSQL → FastAPI → Streamlit → Docker → Deploy
-```
+``` 
 
 Her adım bir öncekinin üzerine inşa edilir. Adımları sırayla takip edin.
 
 ---
-
-## Adım 1 — Gemini ile Yorum Analizi Geliştirme
+## Adım 1 — Gemini ile Yorum Analizi ve İyileştirme Önerileri Geliştirme
+								
 
 **Ne yapacağız?**
 Google'ın Gemini yapay zeka modeline bağlanıp müşteri yorumlarını
@@ -43,11 +43,6 @@ python app/services/gemini_service.py "Ürün harika, çok memnun kaldım!"
 **Ne yapacağız?**
 Her analiz sonucunu veritabanına kaydedeceğiz. Böylece geçmiş
 analizlere erişebilecek ve istatistik gösterebileceğiz.
-
-**Neden FastAPI'den önce?**
-Veritabanı modelini ve bağlantısını önce kurarsak FastAPI'yi
-yazarken zaten hazır olan DB katmanını entegre edebiliriz.
-Sonradan geri dönüp değiştirmek gerekmez.
 
 **Dosyalar:**
 - `backend/app/core/config.py` — ortam değişkenlerini oku (.env)
@@ -120,10 +115,7 @@ bir web arayüzü oluşturacağız.
 
 **Ne öğreneceğiz?**
 - Streamlit kurulumu ve `streamlit run` komutu
-- `st.form` ile kullanıcı girişi alma
-- `st.session_state` ile sayfa yenilenince veriyi koruma
-- `st.columns` ve `st.metric` ile düzen oluşturma
-- `st.container(border=True)` ile kart görünümü (saf Python, HTML yok)
+- `ssion_state` ile sayfa yenilenince veriyi koruma
 - `requests` kütüphanesi ile FastAPI'ye istek atma
 
 **Test:**
@@ -135,7 +127,7 @@ streamlit run app.py
 
 ---
 
-## Adım 5 — Docker
+## Adım 5 — Docker ile Paketlenme
 
 **Ne yapacağız?**
 Tüm servisleri (PostgreSQL, FastAPI, Streamlit) Docker container'larına
@@ -179,57 +171,104 @@ docker compose down -v
 
 ---
 
-## Adım 6 — Deploy (AWS EC2)
+## Adım 6 — Deploy (Railway)
 
 **Ne yapacağız?**
-Uygulamayı AWS EC2 üzerinde gerçek bir sunucuya deploy edeceğiz.
-İnternet üzerinden erişilebilir hale getireceğiz.
+Uygulamayı Railway üzerinde deploy edeceğiz. Backend (FastAPI), 
+frontend (Streamlit) ve PostgreSQL servislerini ayrı ayrı ayağa 
+kaldırıp internet üzerinden erişilebilir hale getireceğiz.
 
 **Ne öğreneceğiz?**
-- EC2 instance oluşturma (Ubuntu 22.04, t2.micro)
-- Security Group ile port açma (22, 8000, 8501)
-- SSH ile sunucuya bağlanma
-- Sunucuya Docker kurma
-- Uygulamayı production'da çalıştırma
+- Railway'de monorepo yapısıyla çoklu servis deploy etme
+- Root Directory ile farklı klasörleri ayrı servislere bağlama
+- Managed PostgreSQL provisioning ve servisler arası reference kullanımı
+- Environment variables ve Railway reference syntax
+- Dockerfile'ı platform-agnostic hale getirme ($PORT kullanımı)
+
+**Ön koşullar:**
+- GitHub hesabı ve projeyi barındıran bir repo
+- Railway hesabı (railway.app üzerinden GitHub ile giriş)
+- `backend/` ve `frontend/` klasörlerinin her birinde kendi `Dockerfile`'ı
 
 **Adımlar:**
 
-1. EC2 instance oluşturun:
-   - AMI: Ubuntu 22.04 LTS
-   - Tip: t2.micro (ücretsiz kullanım)
-   - Security Group: 22 (SSH), 8000 (API), 8501 (Streamlit) portlarını açın
+### 1. Railway'de proje oluşturun
+- [railway.app](https://railway.app) → GitHub ile giriş
+- **New Project → Deploy from GitHub repo** → `yorum-analizi` repo'sunu seçin
 
-2. SSH ile bağlanın:
-   ```bash
-   ssh -i anahtar.pem ubuntu@<ec2-ip-adresi>
-   ```
+### 2. Backend servisini yapılandırın
+İlk oluşan servise tıklayın → **Settings**:
+- **Source → Add Root Directory:** `backend`
+- **Service Name:** `backend`
+- **Networking → Generate Domain** (public URL için)
 
-3. Docker kurun:
-   ```bash
-   sudo apt update && sudo apt install -y docker.io docker-compose-plugin
-   sudo usermod -aG docker ubuntu
-   newgrp docker
-   ```
+**Variables** sekmesi → **Raw Editor** → `backend/.env` içeriğini 
+yapıştırın. `DATABASE_URL` değişkenini aşağıdaki adımda güncelleyeceksiniz.
 
-4. Projeyi klonlayın:
-   ```bash
-   git clone <repo-url>
-   cd yorum-analizi
-   cp backend/.env.example backend/.env
-   # .env dosyasına GEMINI_API_KEY'i yazın
-   nano backend/.env
-   ```
+### 3. PostgreSQL servisi ekleyin
+Canvas'ta **+ Add → Database → Add PostgreSQL**.
 
-5. Başlatın:
-   ```bash
-   docker compose up -d --build
-   ```
+Provisioning tamamlandıktan sonra backend'in Variables bölümüne dönün ve 
+`DATABASE_URL` değerini şöyle güncelleyin:
+​```
+DATABASE_URL=${{Postgres.DATABASE_URL}}
+​```
 
-6. Erişin:
-   ```
-   http://<ec2-ip-adresi>:8501        → Streamlit
-   http://<ec2-ip-adresi>:8000/docs   → FastAPI
-   ```
+**Not:** `asyncpg` driver kullanıyorsanız, kodunuzda URL'yi okurken 
+`postgresql://` prefix'ini `postgresql+asyncpg://` ile değiştirmeniz 
+gerekir. `main.py`'da:
+​```python
+import os
+db_url = os.getenv("DATABASE_URL", "")
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+​```
+
+### 4. Backend Dockerfile'ını Railway'e uyarlayın
+`backend/Dockerfile` içindeki CMD satırı `$PORT` env variable'ını 
+kullanmalıdır:
+​```dockerfile
+CMD uvicorn main:app --host 0.0.0.0 --port $PORT
+​```
+
+### 5. Frontend servisini ekleyin
+Canvas'ta **+ Add → GitHub Repo** → aynı repo'yu tekrar seçin.
+
+Yeni servise tıklayın → **Settings**:
+- **Add Root Directory:** `frontend`
+- **Service Name:** `frontend`
+- **Networking → Generate Domain**
+
+### 6. Frontend environment variables
+**Variables → Raw Editor** → `frontend/.env` içeriğini yapıştırın.
+
+`API_BASE_URL` değişkenini backend servisine işaret edecek şekilde 
+güncelleyin:
+​```
+API_BASE_URL=https://${{backend.RAILWAY_PUBLIC_DOMAIN}}/api/v1
+​```
+
+### 7. Frontend Dockerfile'ını Railway'e uyarlayın
+`frontend/Dockerfile` içindeki CMD satırı Streamlit'i dinamik port ve 
+tüm network interface'leri üzerinden başlatmalıdır:
+​```dockerfile
+CMD streamlit run app.py --server.port=$PORT --server.address=0.0.0.0
+​```
+
+### 8. Deploy'u doğrulayın
+Her iki servis de "Active" durumuna geldiğinde:
+- **Frontend:** `https://<frontend-domain>.up.railway.app` → Streamlit UI
+- **Backend:** `https://<backend-domain>.up.railway.app/docs` → FastAPI Swagger
+
+**Otomatik deploy:** Main branch'e her push, bağlı servisleri otomatik 
+olarak yeniden build eder.
+
+**Dikkat edilmesi gerekenler:**
+- Railway `docker-compose.yml` dosyasını kullanmaz; her servis kendi 
+  Dockerfile'ı üzerinden ayrı container olarak çalışır
+- `.env` dosyaları git'e pushlanmaz; secrets tamamen Railway 
+  Variables üzerinden yönetilir
+- Railway free tier kaldırılmıştır
 
 ---
 
